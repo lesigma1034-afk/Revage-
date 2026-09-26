@@ -1208,13 +1208,14 @@ task.spawn(function()
                                 end
                                 
                                 hrp.AssemblyLinearVelocity = Vector3.zero
-                                -- Телепортируемся точь-в-точь на позицию игрока (без смещения вверх), чтобы игра засчитала контакт и захват
+                                -- Телепортируемся точь-в-точь на позицию игрока для захвата
                                 hrp.CFrame = targetHrp.CFrame
                                 task.wait(0.08)
                                 
                                 local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
                                 if mainEvent then
-                                    mainEvent:FireServer("Grab", targetChar)
+                                    -- ИСПРАВЛЕНО: Убран лишний аргумент targetChar, так как серверный MainEvent обрабатывает захват по дистанции
+                                    mainEvent:FireServer("Grab")
                                 end
                                 
                                 task.wait(0.15)
@@ -1444,7 +1445,7 @@ RunService:BindToRenderStep("CociteCamLock", Enum.RenderPriority.Camera.Value + 
                 end
             end
         end
-    end)
+    end
 end)
 
 local function RemoveHighlight(player)
