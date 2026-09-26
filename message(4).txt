@@ -1208,15 +1208,16 @@ task.spawn(function()
                                 end
                                 
                                 hrp.AssemblyLinearVelocity = Vector3.zero
-                                hrp.CFrame = targetHrp.CFrame + Vector3.new(0, 3, 0)
-                                task.wait(0.05)
+                                -- Телепортируемся точь-в-точь на позицию игрока (без смещения вверх), чтобы игра засчитала контакт и захват
+                                hrp.CFrame = targetHrp.CFrame
+                                task.wait(0.08)
                                 
                                 local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
                                 if mainEvent then
                                     mainEvent:FireServer("Grab", targetChar)
                                 end
                                 
-                                task.wait(0.05)
+                                task.wait(0.15)
                                 hrp.CFrame = originalPos
                                 
                                 if wasFlying then
