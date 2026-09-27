@@ -1,13 +1,15 @@
--- -- COCITESCRIPT | Da Hood & Flame Hood Edition (Stealth & Auto-Startup)
--- FIXED: Silent Aim 100% locked + Auto Rescue + Target Strafe + Zero Console/Chat logs + Auth Guarded Render
+-- COCITESCRIPT | Da Hood & Flame Hood Edition (Clean Startup & Anti-Freeze)
+-- FIXED: Silent Aim 100% только в locked + BulletTP удалён + меню прокачано
+-- TARGET STRAFE: интегрирован во вкладку Aimbot в самом низу + синхронизация с Silent Aim
+-- ADDED: Auto Stomp во вкладке MISC
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
     Camera = workspace.CurrentCamera
 end)
@@ -44,15 +46,12 @@ pcall(function()
         Camera.CameraType = Enum.CameraType.Custom
     end
 end)
-
 _G.CociteConnections = {}
 _G.CociteDrawings = {}
 
-local IsAuthenticated = false
-
 local Settings = {
     Aimbot = {
-        Enabled = false,
+        Enabled = true,
         LockedTarget = nil,
         AimPart = "Head",
         FOV = 220,
@@ -63,7 +62,7 @@ local Settings = {
         UsePrediction = true,
     },
     SilentAim = {
-        Enabled = false,
+        Enabled = true,
         AimPart = "HumanoidRootPart",
         FOV = 200,
         ShowFOV = true,
@@ -76,13 +75,13 @@ local Settings = {
     },
     TargetStrafe = {
         Enabled = false,
-        Mode = "Orbit",
+        Mode = "Orbit", -- "Orbit", "Above", "Random"
         Speed = 25,
         Radius = 15,
         Height = 10,
     },
     NoSpread = {
-        Enabled = false,
+        Enabled = true,
         Amount = 0,
     },
     Whitelist = {
@@ -102,8 +101,8 @@ local Settings = {
         Fly = false,
         FlySpeed = 50,
         VClipDistance = 10,
-        AutoRescue = false,
-        AutoRescueTargetName = "None",
+        AutoStomp = false,
+        AutoStompDistance = 15,
     }
 }
 
@@ -151,7 +150,7 @@ local function IsValidTarget(player)
 
     local bodyEffects = char:FindFirstChild("BodyEffects")
     if bodyEffects then
-        local ko = bodyEffects:FindFirstChild("K.O") or bodyEffects:FindFirstChild("KO") or bodyEffects:FindFirstChild("K.O.")
+        local ko = bodyEffects:FindFirstChild("K.O") or bodyEffects:FindFirstChild("KO")
         if ko and ko.Value == true then
             return false
         end
@@ -716,19 +715,19 @@ aimFloatStroke.Thickness = 1.6
 
 local SilentFloatBtn = Instance.new("TextButton", ScreenGui)
 SilentFloatBtn.Name = "CociteSilentFloatBtn"
-SilentFloatBtn.BackgroundColor3 = Color3.fromRGB(14, 20, 30)
+SilentFloatBtn.BackgroundColor3 = Settings.SilentAim.Enabled and Color3.fromRGB(0, 140, 190) or Color3.fromRGB(14, 20, 30)
 SilentFloatBtn.Position = UDim2.new(0.82, 0, 0.44, 0)
 SilentFloatBtn.Size = UDim2.new(0, 105, 0, 42)
 SilentFloatBtn.Font = Enum.Font.GothamBold
-SilentFloatBtn.Text = "🔮 SILENT: OFF"
-SilentFloatBtn.TextColor3 = Color3.fromRGB(150, 200, 230)
+SilentFloatBtn.Text = Settings.SilentAim.Enabled and "🔮 SILENT: ON" or "🔮 SILENT: OFF"
+SilentFloatBtn.TextColor3 = Settings.SilentAim.Enabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 200, 230)
 SilentFloatBtn.TextSize = 12
 SilentFloatBtn.Visible = false
 SilentFloatBtn.Active = true
 SilentFloatBtn.Draggable = true
 Instance.new("UICorner", SilentFloatBtn).CornerRadius = UDim.new(0, 12)
 local silentFloatStroke = Instance.new("UIStroke", SilentFloatBtn)
-silentFloatStroke.Color = Color3.fromRGB(40, 90, 130)
+silentFloatStroke.Color = Settings.SilentAim.Enabled and Color3.fromRGB(0, 230, 255) or Color3.fromRGB(40, 90, 130)
 silentFloatStroke.Thickness = 1.6
 
 local FlyFloatBtn = Instance.new("TextButton", ScreenGui)
@@ -901,7 +900,6 @@ AimFloatBtn.MouseButton1Click:Connect(function()
 end)
 
 table.insert(_G.CociteConnections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not IsAuthenticated then return end
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q then
         if Settings.Aimbot.Enabled then
@@ -997,8 +995,6 @@ LoginBtn.MouseButton1Click:Connect(function()
         task.wait(0.4)
         AuthFrame:Destroy()
 
-        IsAuthenticated = true
-
         ToggleButton.Visible = true
         AimFloatBtn.Visible = true
         SilentFloatBtn.Visible = true
@@ -1007,15 +1003,9 @@ LoginBtn.MouseButton1Click:Connect(function()
         TweenService:Create(MainFrame, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
         TweenService:Create(MainStroke, TweenInfo.new(0.5), {Transparency = 0}):Play()
 
-        Settings.Aimbot.Enabled = true
-        Settings.SilentAim.Enabled = true
-        Settings.ESP.Enabled = true
-        Settings.NoSpread.Enabled = true
-
-        if aimbotToggleObj and aimbotToggleObj.Set then aimbotToggleObj:Set(true) end
-        UpdateSilentAimState(true, false)
-
         UpdateAimState(false)
+        UpdateSilentAimState(Settings.SilentAim.Enabled, true)
+        UpdateFlyState(Settings.Misc.Fly, true)
     else
         StatusLabel.Text = "Статус: ❌ Неверный ключ!"
         StatusLabel.TextColor3 = Color3.fromRGB(255, 70, 90)
@@ -1121,7 +1111,6 @@ end
 
 -- ===================== TARGET STRAFE LOGIC =====================
 RunService.RenderStepped:Connect(function(dt)
-    if not IsAuthenticated then return end
     local ts = Settings.TargetStrafe
     if not ts.Enabled or not targetStrafeTarget or not targetStrafeTarget.Character then return end
 
@@ -1163,76 +1152,36 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 -- =================== END TARGET STRAFE ===================
 
--- ===================== AUTO RESCUE LOGIC (FIXED) =====================
-local function IsPlayerKO(player)
-    if not player or not player.Character then return false end
-    local char = player.Character
-    local bodyEffects = char:FindFirstChild("BodyEffects")
-    if bodyEffects then
-        local ko = bodyEffects:FindFirstChild("K.O") or bodyEffects:FindFirstChild("KO") or bodyEffects:FindFirstChild("K.O.")
-        if ko and ko.Value == true then
-            return true
-        end
-    end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid.Health <= 0 then
-        return true
-    end
-    return false
-end
+-- ===================== AUTO STOMP LOGIC =====================
+RunService.Heartbeat:Connect(function()
+    if not Settings.Misc.AutoStomp then return end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-local lastRescueTime = 0
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if IsAuthenticated and Settings.Misc.AutoRescue and Settings.Misc.AutoRescueTargetName ~= "None" then
-            pcall(function()
-                local target = Players:FindFirstChild(Settings.Misc.AutoRescueTargetName)
-                if target and target.Character then
-                    if IsPlayerKO(target) then
-                        local currentTime = tick()
-                        if currentTime - lastRescueTime > 1.2 then
-                            lastRescueTime = currentTime
-                            
-                            local char = LocalPlayer.Character
-                            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                            local targetChar = target.Character
-                            local targetHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-                            
-                            if hrp and targetHrp then
-                                local originalPos = hrp.CFrame
-                                
-                                local wasFlying = Settings.Misc.Fly
-                                if wasFlying then
-                                    UpdateFlyState(false, false)
-                                end
-                                
-                                hrp.AssemblyLinearVelocity = Vector3.zero
-                                -- Телепортируемся точь-в-точь на позицию игрока для захвата
-                                hrp.CFrame = targetHrp.CFrame
-                                task.wait(0.08)
-                                
-                                local mainEvent = game:GetService("ReplicatedStorage"):FindFirstChild("MainEvent")
-                                if mainEvent then
-                                    -- ИСПРАВЛЕНО: Убран лишний аргумент targetChar, так как серверный MainEvent обрабатывает захват по дистанции
-                                    mainEvent:FireServer("Grab")
-                                end
-                                
-                                task.wait(0.15)
-                                hrp.CFrame = originalPos
-                                
-                                if wasFlying then
-                                    UpdateFlyState(true, false)
-                                end
-                            end
-                        end
+    local mainEvent = ReplicatedStorage:FindFirstChild("MainEvent")
+    if not mainEvent then return end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local targetChar = player.Character
+            local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+            local bodyEffects = targetChar:FindFirstChild("BodyEffects")
+            if targetHrp and bodyEffects then
+                local ko = bodyEffects:FindFirstChild("K.O") or bodyEffects:FindFirstChild("KO")
+                if ko and ko.Value == true then
+                    local dist = (hrp.Position - targetHrp.Position).Magnitude
+                    if dist <= (Settings.Misc.AutoStompDistance or 15) then
+                        pcall(function()
+                            mainEvent:FireServer("Stomp")
+                        end)
                     end
                 end
-            end)
+            end
         end
     end
 end)
--- =================== END AUTO RESCUE ===================
+-- =================== END AUTO STOMP ===================
 
 local AimbotFOVCircle = nil
 local SilentFOVCircle = nil
@@ -1270,8 +1219,8 @@ pcall(function()
     end
 end)
 
+-- [[ SILENT AIM CORE — 100% только в locked ]]
 RunService.RenderStepped:Connect(function()
-    if not IsAuthenticated then return end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     local bestTarget = nil
     local bestPart = nil
@@ -1301,18 +1250,18 @@ RunService.RenderStepped:Connect(function()
     currentSilentAimPos = bestPos
 
     if AimbotFOVCircle then
-        AimbotFOVCircle.Visible = IsAuthenticated and Settings.Aimbot.Enabled and Settings.Aimbot.ShowFOV
+        AimbotFOVCircle.Visible = Settings.Aimbot.Enabled and Settings.Aimbot.ShowFOV
         AimbotFOVCircle.Radius = Settings.Aimbot.FOV
         AimbotFOVCircle.Position = center
     end
     if SilentFOVCircle then
-        SilentFOVCircle.Visible = IsAuthenticated and Settings.SilentAim.Enabled and Settings.SilentAim.ShowFOV
+        SilentFOVCircle.Visible = Settings.SilentAim.Enabled and Settings.SilentAim.ShowFOV
         SilentFOVCircle.Radius = Settings.SilentAim.FOV
         SilentFOVCircle.Position = center
     end
 
     if SilentTracerLine then
-        if IsAuthenticated and Settings.SilentAim.Enabled and Settings.SilentAim.Tracers and currentSilentTargetPart then
+        if Settings.SilentAim.Enabled and Settings.SilentAim.Tracers and currentSilentTargetPart then
             local screenPos, onScreen = Camera:WorldToViewportPoint(currentSilentTargetPart.Position)
             if onScreen and screenPos.Z > 0 then
                 SilentTracerLine.From = center
@@ -1332,7 +1281,6 @@ pcall(function()
     if hookmetamethod and newcclosure and checkcaller then
         local oldIndex
         oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-            if not IsAuthenticated then return oldIndex(self, key) end
             if not checkcaller() and (key == "Hit" or key == "hit" or key == "Target" or key == "target") and (self == Mouse) then
                 if Settings.SilentAim.Enabled and currentSilentAimPos then
                     if key == "Hit" or key == "hit" then
@@ -1351,7 +1299,6 @@ pcall(function()
     if hookmetamethod and getnamecallmethod and newcclosure and checkcaller then
         local oldNamecall
         oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
-            if not IsAuthenticated then return oldNamecall(...) end
             local method = getnamecallmethod()
             local args = {...}
             local self = args[1]
@@ -1394,7 +1341,6 @@ pcall(function()
 end)
 
 RunService:BindToRenderStep("CociteCamLock", Enum.RenderPriority.Camera.Value + 1, function(dt)
-    if not IsAuthenticated then return end
     pcall(function()
         if Settings.Aimbot.Enabled and AimActive then
             local cam = workspace.CurrentCamera or Camera
@@ -1445,7 +1391,7 @@ RunService:BindToRenderStep("CociteCamLock", Enum.RenderPriority.Camera.Value + 
                 end
             end
         end
-    end
+    end)
 end)
 
 local function RemoveHighlight(player)
@@ -1479,7 +1425,6 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 RunService.RenderStepped:Connect(function()
-    if not IsAuthenticated then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if Settings.ESP.Enabled and IsValidTarget(player) then
             local char = player.Character
@@ -1638,6 +1583,7 @@ CreateSlider(AimbotPage, "Spread Amount", 0, 100, Settings.NoSpread.Amount, "%",
     Settings.NoSpread.Amount = val
 end)
 
+-- TARGET STRAFE (В самом низу вкладки AIMBOT)
 CreateSection(AimbotPage, "TARGET STRAFE")
 
 CreateToggle(AimbotPage, "Target Strafe Master", Settings.TargetStrafe.Enabled, function(state)
@@ -1740,7 +1686,7 @@ end)
 -- ESP
 CreateSection(ESPPage, "ESP VISUALS")
 
-CreateToggle(ESPPage, "Master ESP", Settings.ESP.Enabled, function(state)
+CreateToggle(ESPPage, "Master ESP", false, function(state)
     Settings.ESP.Enabled = state
     if not state then
         ClearESP()
@@ -1995,6 +1941,17 @@ CreateButton(MiscPage, "▼ VClip Down (Clip Below / Floor)", function()
     DoVClip(-Settings.Misc.VClipDistance)
 end)
 
+-- AUTO STOMP SECTION IN MISC
+CreateSection(MiscPage, "AUTO STOMP")
+
+CreateToggle(MiscPage, "Auto Stomp", Settings.Misc.AutoStomp, function(state)
+    Settings.Misc.AutoStomp = state
+end)
+
+CreateSlider(MiscPage, "Auto Stomp Dist", 5, 30, Settings.Misc.AutoStompDistance, " st", 1, function(val)
+    Settings.Misc.AutoStompDistance = val
+end)
+
 CreateSection(MiscPage, "HOTKEYS (PC)")
 local helpFrame = Instance.new("Frame", MiscPage)
 helpFrame.BackgroundColor3 = Color3.fromRGB(18, 14, 30)
@@ -2026,84 +1983,3 @@ AddKeyHelp("• [X] - Toggle Fly On / Off")
 AddKeyHelp("• [B] - VClip Up (through ceiling)")
 AddKeyHelp("• [V] - VClip Down (through floor)")
 AddKeyHelp("• [Q] - Toggle Regular Aimbot (CamLock)")
-
--- AUTO RESCUE / SAVE GRAB (FIXED UI SECTION)
-CreateSection(MiscPage, "AUTO RESCUE / SAVE GRAB")
-
-CreateToggle(MiscPage, "Auto Rescue Master", Settings.Misc.AutoRescue, function(state)
-    Settings.Misc.AutoRescue = state
-end)
-
-local arPickerFrame = Instance.new("Frame", MiscPage)
-arPickerFrame.BackgroundColor3 = Color3.fromRGB(18, 14, 30)
-arPickerFrame.Size = UDim2.new(1, 0, 0, 34)
-Instance.new("UICorner", arPickerFrame).CornerRadius = UDim.new(0, 10)
-local arpStroke = Instance.new("UIStroke", arPickerFrame)
-arpStroke.Color = Color3.fromRGB(100, 45, 170)
-arpStroke.Thickness = 1.3
-
-local arSelectedName = "None"
-local arPlayers = {}
-
-local function RefreshARPlayers()
-    arPlayers = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(arPlayers, p.Name)
-        end
-    end
-    if #arPlayers == 0 then
-        table.insert(arPlayers, "None in server")
-        arSelectedName = "None"
-        Settings.Misc.AutoRescueTargetName = "None"
-    else
-        if not table.find(arPlayers, arSelectedName) then
-            arSelectedName = arPlayers[1]
-            Settings.Misc.AutoRescueTargetName = arSelectedName
-        end
-    end
-end
-RefreshARPlayers()
-
-local arSelectBtn = Instance.new("TextButton", arPickerFrame)
-arSelectBtn.BackgroundTransparency = 1
-arSelectBtn.Position = UDim2.new(0, 10, 0, 0)
-arSelectBtn.Size = UDim2.new(1, -70, 1, 0)
-arSelectBtn.Font = Enum.Font.GothamSemibold
-arSelectBtn.Text = "Rescue Target: " .. arSelectedName
-arSelectBtn.TextColor3 = Color3.fromRGB(210, 190, 255)
-arSelectBtn.TextSize = 11
-arSelectBtn.TextXAlignment = Enum.TextXAlignment.Left
-
-local arCurIdx = 1
-arSelectBtn.MouseButton1Click:Connect(function()
-    RefreshARPlayers()
-    if #arPlayers > 0 and arPlayers[1] ~= "None in server" then
-        arCurIdx = arCurIdx + 1
-        if arCurIdx > #arPlayers then arCurIdx = 1 end
-        arSelectedName = arPlayers[arCurIdx]
-        Settings.Misc.AutoRescueTargetName = arSelectedName
-        arSelectBtn.Text = "Rescue Target: " .. arSelectedName
-    else
-        arSelectBtn.Text = "Rescue Target: None"
-        arSelectedName = "None"
-        Settings.Misc.AutoRescueTargetName = "None"
-    end
-end)
-
-local arSetBtn = Instance.new("TextButton", arPickerFrame)
-arSetBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 210)
-arSetBtn.Position = UDim2.new(1, -56, 0.5, -12)
-arSetBtn.Size = UDim2.new(0, 48, 0, 24)
-arSetBtn.Font = Enum.Font.GothamBold
-arSetBtn.Text = "SET"
-arSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-arSetBtn.TextSize = 10
-Instance.new("UICorner", arSetBtn).CornerRadius = UDim.new(0, 6)
-
-arSetBtn.MouseButton1Click:Connect(function()
-    if arSelectedName ~= "None" then
-        Settings.Misc.AutoRescueTargetName = arSelectedName
-        arSelectBtn.Text = "Rescue Target: " .. arSelectedName .. " (ACTIVE)"
-    end
-end)
