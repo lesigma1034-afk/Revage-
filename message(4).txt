@@ -1,5 +1,6 @@
 -- COCITESCRIPT | Da Hood & Flame Hood Edition (Clean Startup & Anti-Freeze)
--- UPDATED: Выделенная вкладка "TARGETS" с полным функционалом (Выбор, Флинг, Спектактейт, Подсветка, ТП + Нож/Стомп)
+-- FIXED: Silent Aim 100% только в locked + BulletTP удалён + меню прокачано
+-- TARGET STRAFE: интегрирован во вкладку Aimbot в самом низу + синхронизация с Silent Aim
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -13,8 +14,6 @@ end)
 
 pcall(function()
     RunService:UnbindFromRenderStep("CociteCamLock")
-    RunService:UnbindFromRenderStep("CociteSpectate")
-    RunService:UnbindFromRenderStep("CociteFling")
     if _G.CociteConnections then
         for _, conn in pairs(_G.CociteConnections) do
             pcall(function() conn:Disconnect() end)
@@ -71,14 +70,6 @@ local Settings = {
         UsePrediction = true,
         WallCheck = false,
         StickyTarget = true,
-    },
-    TargetManager = {
-        SelectedPlayer = nil,
-        Fling = false,
-        Spectate = false,
-        Highlight = true,
-        AutoKillKnife = false,
-        TpOffset = Vector3.new(0, 3, 0),
     },
     TargetStrafe = {
         Enabled = false,
@@ -415,7 +406,7 @@ local TabListLayout = Instance.new("UIListLayout", TabBar)
 TabListLayout.FillDirection = Enum.FillDirection.Horizontal
 TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 TabListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-TabListLayout.Padding = UDim.new(0, 4)
+TabListLayout.Padding = UDim.new(0, 6)
 
 local ContentContainer = Instance.new("Frame", MainFrame)
 ContentContainer.BackgroundTransparency = 1
@@ -428,11 +419,11 @@ local TabButtons = {}
 local function CreateTab(tabName)
     local tabBtn = Instance.new("TextButton", TabBar)
     tabBtn.BackgroundColor3 = Color3.fromRGB(24, 18, 38)
-    tabBtn.Size = UDim2.new(0, 68, 0, 26)
+    tabBtn.Size = UDim2.new(0, 88, 0, 26)
     tabBtn.Font = Enum.Font.GothamBold
     tabBtn.Text = tabName
     tabBtn.TextColor3 = Color3.fromRGB(150, 140, 170)
-    tabBtn.TextSize = 10
+    tabBtn.TextSize = 11
     Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
 
     local pageFrame = Instance.new("ScrollingFrame", ContentContainer)
@@ -690,7 +681,6 @@ local function CreateSlider(parent, label, minVal, maxVal, defaultVal, suffix, s
 end
 
 local AimbotPage = CreateTab("AIMBOT")
-local TargetsPage = CreateTab("TARGETS")
 local ESPPage = CreateTab("ESP")
 local WhitelistPage = CreateTab("WHITELIST")
 local MiscPage = CreateTab("MISC")
@@ -1158,138 +1148,6 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 -- =================== END TARGET STRAFE ===================
 
--- ===================== TARGET MANAGER LOGIC (FLING, SPECTATE, HIGHLIGHT, KNIFE AUTO-KILL) =====================
-local targetHighlightMap = {}
-
-local function UpdateTargetHighlight()
-    local sel = Settings.TargetManager.SelectedPlayer
-    local shouldHighlight = Settings.TargetManager.Highlight
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p == sel and shouldHighlight and p.Character then
-            local char = p.Character
-            if not targetHighlightMap[p] or targetHighlightMap[p].Parent ~= char then
-                if targetHighlightMap[p] then targetHighlightMap[p]:Destroy() end
-                local hl = Instance.new("Highlight")
-                hl.Name = "CociteTargetHighlight"
-                hl.FillColor = Color3.fromRGB(255, 40, 40)
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                hl.FillTransparency = 0.3
-                hl.OutlineTransparency = 0
-                hl.Adornee = char
-                hl.Parent = char
-                targetHighlightMap[p] = hl
-            else
-                targetHighlightMap[p].Enabled = true
-            end
-        else
-            if targetHighlightMap[p] then
-                targetHighlightMap[p]:Destroy()
-                targetHighlightMap[p] = nil
-            end
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    UpdateTargetHighlight()
-end)
-
--- Fling loop
-RunService.Heartbeat:Connect(function()
-    local tm = Settings.TargetManager
-    if not tm.Fling or not tm.SelectedPlayer or not tm.SelectedPlayer.Character then return end
-    local char = LocalPlayer.Character
-    local targetChar = tm.SelectedPlayer.Character
-    if not char or not targetChar then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetHrp then return end
-
-    hrp.CFrame = targetHrp.CFrame + Vector3.new(0, 1, 0)
-    hrp.AssemblyLinearVelocity = Vector3.new(99999, 99999, 99999)
-    hrp.AssemblyAngularVelocity = Vector3.new(99999, 99999, 99999)
-end)
-
--- Spectate loop
-RunService.RenderStepped:Connect(function()
-    local tm = Settings.TargetManager
-    local cam = workspace.CurrentCamera or Camera
-    if tm.Spectate and tm.SelectedPlayer and tm.SelectedPlayer.Character then
-        local targetHum = tm.SelectedPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if targetHum and cam then
-            cam.CameraSubject = targetHum
-        end
-    else
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if hum and cam and cam.CameraSubject ~= hum then
-            cam.CameraSubject = hum
-        end
-    end
-end)
-
--- Auto Knife & Stomp function
-local function ExecuteTargetAction(actionType)
-    local tm = Settings.TargetManager
-    local sel = tm.SelectedPlayer
-    if not sel or not sel.Character then return end
-    local char = LocalPlayer.Character
-    local targetChar = sel.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetHrp then return end
-
-    local oldCF = hrp.CFrame
-
-    if actionType == "TP" then
-        hrp.CFrame = targetHrp.CFrame + tm.TpOffset
-    elseif actionType == "KnifeKill" then
-        pcall(function()
-            -- Телепортация в магазин для покупки ножа, если это Дахуд (покупаем нож по стандарту или берем из инвентаря)
-            -- Стандартный метод покупки ножа в Da Hood: покупка у кассы или экипировка из рюкзака
-            local knife = LocalPlayer.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
-            if not knife then
-                -- Телепортируемся к магазину оружия (в Da Hood оружейка обычно возле банка или оружейного магазина)
-                hrp.CFrame = CFrame.new(-585.5, 7.8, -735.3)
-                task.wait(0.2)
-                -- Эмулируем покупку или триггеримвзаимодействие если доступно, либо просто берем если в рюкзаке
-                knife = LocalPlayer.Backpack:FindFirstChild("Knife")
-            end
-            
-            if knife then
-                knife.Parent = char
-            end
-
-            -- Телепортируемся к цели
-            hrp.CFrame = targetHrp.CFrame + Vector3.new(0, 2, 0)
-            task.wait(0.05)
-
-            -- Удар ножом / Атака через MainEvent
-            local mainEvent = LocalPlayer.Character:FindFirstChild("MainEvent") or ReplicatedStorage:FindFirstChild("MainEvent")
-            if mainEvent then
-                mainEvent:FireServer("Stomp")
-            end
-
-            -- Возврат на исходную позицию
-            task.wait(0.1)
-            hrp.CFrame = oldCF
-        end)
-    elseif actionType == "Stomp" then
-        pcall(function()
-            hrp.CFrame = targetHrp.CFrame + Vector3.new(0, 1, 0)
-            task.wait(0.05)
-            local mainEvent = LocalPlayer.Character:FindFirstChild("MainEvent") or ReplicatedStorage:FindFirstChild("MainEvent")
-            if mainEvent then
-                mainEvent:FireServer("Stomp")
-            end
-            task.wait(0.1)
-            hrp.CFrame = oldCF
-        end)
-    end
-end
--- =================== END TARGET MANAGER LOGIC ===================
-
 local AimbotFOVCircle = nil
 local SilentFOVCircle = nil
 local SilentTracerLine = nil
@@ -1690,92 +1548,105 @@ CreateSlider(AimbotPage, "Spread Amount", 0, 100, Settings.NoSpread.Amount, "%",
     Settings.NoSpread.Amount = val
 end)
 
--- ===================== POPULATE TARGETS PAGE =====================
-CreateSection(TargetsPage, "TARGET SELECTION")
+-- TARGET STRAFE (В самом низу вкладки AIMBOT)
+CreateSection(AimbotPage, "TARGET STRAFE")
 
-local targetPickerFrame = Instance.new("Frame", TargetsPage)
-targetPickerFrame.BackgroundColor3 = Color3.fromRGB(18, 14, 30)
-targetPickerFrame.Size = UDim2.new(1, 0, 0, 34)
-Instance.new("UICorner", targetPickerFrame).CornerRadius = UDim.new(0, 10)
-local tpStroke = Instance.new("UIStroke", targetPickerFrame)
-tpStroke.Color = Color3.fromRGB(100, 45, 170)
-tpStroke.Thickness = 1.3
+CreateToggle(AimbotPage, "Target Strafe Master", Settings.TargetStrafe.Enabled, function(state)
+    Settings.TargetStrafe.Enabled = state
+end)
 
-local targetSelectBtn = Instance.new("TextButton", targetPickerFrame)
-targetSelectBtn.BackgroundTransparency = 1
-targetSelectBtn.Position = UDim2.new(0, 10, 0, 0)
-targetSelectBtn.Size = UDim2.new(1, -20, 1, 0)
-targetSelectBtn.Font = Enum.Font.GothamSemibold
-targetSelectBtn.Text = "Target: None"
-targetSelectBtn.TextColor3 = Color3.fromRGB(210, 190, 255)
-targetSelectBtn.TextSize = 11
-targetSelectBtn.TextXAlignment = Enum.TextXAlignment.Left
+CreateCycle(AimbotPage, "Strafe Mode", {"Orbit", "Above", "Random"}, 1, function(val)
+    Settings.TargetStrafe.Mode = val
+end)
 
-local serverTargetList = {}
-local currentTargetIndex = 1
+CreateSlider(AimbotPage, "Strafe Speed", 5, 100, Settings.TargetStrafe.Speed, "", 5, function(val)
+    Settings.TargetStrafe.Speed = val
+end)
 
-local function RefreshTargetsList()
-    serverTargetList = {}
+CreateSlider(AimbotPage, "Strafe Radius", 5, 50, Settings.TargetStrafe.Radius, " st", 1, function(val)
+    Settings.TargetStrafe.Radius = val
+end)
+
+CreateSlider(AimbotPage, "Strafe Height", 2, 30, Settings.TargetStrafe.Height, " st", 1, function(val)
+    Settings.TargetStrafe.Height = val
+end)
+
+local tsPickerFrame = Instance.new("Frame", AimbotPage)
+tsPickerFrame.BackgroundColor3 = Color3.fromRGB(18, 14, 30)
+tsPickerFrame.Size = UDim2.new(1, 0, 0, 34)
+Instance.new("UICorner", tsPickerFrame).CornerRadius = UDim.new(0, 10)
+local tspStroke = Instance.new("UIStroke", tsPickerFrame)
+tspStroke.Color = Color3.fromRGB(100, 45, 170)
+tspStroke.Thickness = 1.3
+
+local tsSelectedName = "None"
+local tsPlayers = {}
+
+local function RefreshTSPlayers()
+    tsPlayers = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            table.insert(serverTargetList, p)
+            table.insert(tsPlayers, p.Name)
         end
     end
-    if #serverTargetList == 0 then
-        Settings.TargetManager.SelectedPlayer = nil
-        targetSelectBtn.Text = "Target: None (No players)"
+    if #tsPlayers == 0 then
+        table.insert(tsPlayers, "None in server")
+        tsSelectedName = "None"
+        targetStrafeTarget = nil
     else
-        if not table.find(serverTargetList, Settings.TargetManager.SelectedPlayer) then
-            currentTargetIndex = 1
-            Settings.TargetManager.SelectedPlayer = serverTargetList[currentTargetIndex]
-        end
-        if Settings.TargetManager.SelectedPlayer then
-            targetSelectBtn.Text = "Target: " .. Settings.TargetManager.SelectedPlayer.Name
-            lockedSilentTarget = Settings.TargetManager.SelectedPlayer
+        if not table.find(tsPlayers, tsSelectedName) then
+            tsSelectedName = tsPlayers[1]
+            targetStrafeTarget = Players:FindFirstChild(tsSelectedName)
         end
     end
 end
-RefreshTargetList = RefreshTargetsList
+RefreshTSPlayers()
 
-targetSelectBtn.MouseButton1Click:Connect(function()
-    RefreshTargetsList()
-    if #serverTargetList > 0 then
-        currentTargetIndex = currentTargetIndex + 1
-        if currentTargetIndex > #serverTargetList then currentTargetIndex = 1 end
-        Settings.TargetManager.SelectedPlayer = serverTargetList[currentTargetIndex]
-        targetSelectBtn.Text = "Target: " .. Settings.TargetManager.SelectedPlayer.Name
-        lockedSilentTarget = Settings.TargetManager.SelectedPlayer
+local tsSelectBtn = Instance.new("TextButton", tsPickerFrame)
+tsSelectBtn.BackgroundTransparency = 1
+tsSelectBtn.Position = UDim2.new(0, 10, 0, 0)
+tsSelectBtn.Size = UDim2.new(1, -70, 1, 0)
+tsSelectBtn.Font = Enum.Font.GothamSemibold
+tsSelectBtn.Text = "Target: " .. tsSelectedName
+tsSelectBtn.TextColor3 = Color3.fromRGB(210, 190, 255)
+tsSelectBtn.TextSize = 11
+tsSelectBtn.TextXAlignment = Enum.TextXAlignment.Left
+
+local tsCurIdx = 1
+tsSelectBtn.MouseButton1Click:Connect(function()
+    RefreshTSPlayers()
+    if #tsPlayers > 0 and tsPlayers[1] ~= "None in server" then
+        tsCurIdx = tsCurIdx + 1
+        if tsCurIdx > #tsPlayers then tsCurIdx = 1 end
+        tsSelectedName = tsPlayers[tsCurIdx]
+        targetStrafeTarget = Players:FindFirstChild(tsSelectedName)
+        tsSelectBtn.Text = "Target: " .. tsSelectedName
+        if targetStrafeTarget then
+            lockedSilentTarget = targetStrafeTarget
+        end
+    else
+        tsSelectBtn.Text = "Target: None"
+        tsSelectedName = "None"
+        targetStrafeTarget = nil
     end
 end)
 
-CreateSection(TargetsPage, "TARGET FUNCTIONS")
+local tsSetBtn = Instance.new("TextButton", tsPickerFrame)
+tsSetBtn.BackgroundColor3 = Color3.fromRGB(120, 30, 210)
+tsSetBtn.Position = UDim2.new(1, -56, 0.5, -12)
+tsSetBtn.Size = UDim2.new(0, 48, 0, 24)
+tsSetBtn.Font = Enum.Font.GothamBold
+tsSetBtn.Text = "LOCK"
+tsSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tsSetBtn.TextSize = 10
+Instance.new("UICorner", tsSetBtn).CornerRadius = UDim.new(0, 6)
 
-CreateToggle(TargetsPage, "Target Highlight (Red)", Settings.TargetManager.Highlight, function(state)
-    Settings.TargetManager.Highlight = state
+tsSetBtn.MouseButton1Click:Connect(function()
+    if targetStrafeTarget then
+        lockedSilentTarget = targetStrafeTarget
+        tsSelectBtn.Text = "Target: " .. targetStrafeTarget.Name .. " (LOCKED)"
+    end
 end)
-
-CreateToggle(TargetsPage, "Fling Target", Settings.TargetManager.Fling, function(state)
-    Settings.TargetManager.Fling = state
-end)
-
-CreateToggle(TargetsPage, "Spectate Target", Settings.TargetManager.Spectate, function(state)
-    Settings.TargetManager.Spectate = state
-end)
-
-CreateSection(TargetsPage, "COMBAT ACTIONS & TELEPORT")
-
-CreateButton(TargetsPage, "⚡ Teleport to Target", function()
-    ExecuteTargetAction("TP")
-end)
-
-CreateButton(TargetsPage, "🔪 Auto Knife & Kill Target", function()
-    ExecuteTargetAction("KnifeKill")
-end)
-
-CreateButton(TargetsPage, "👞 Stomp Target", function()
-    ExecuteTargetAction("Stomp")
-end)
--- =================== END POPULATE TARGETS PAGE ===================
 
 -- ESP
 CreateSection(ESPPage, "ESP VISUALS")
@@ -2017,7 +1888,8 @@ flyToggleObj = CreateToggle(MiscPage, "Fly Master", Settings.Misc.Fly, function(
     UpdateFlyState(state, true)
 end)
 
-CreateSlider(MiscPage, "Fly Speed", 10, 200, Settings.Misc.FlySpeed, " studs/s", 5, function(val)
+-- ИЗМЕНЕНО: Максимальная скорость увеличена до 500, шаг изменен на 10
+CreateSlider(MiscPage, "Fly Speed", 10, 500, Settings.Misc.FlySpeed, " studs/s", 10, function(val)
     Settings.Misc.FlySpeed = val
 end)
 
